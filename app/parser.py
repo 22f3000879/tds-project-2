@@ -1,15 +1,12 @@
-from bs4 import BeautifulSoup
+def build_prompt(html: str) -> str:
+    return f"""
+You are a quiz solver. Extract all questions from the HTML below and compute the correct answers.
 
-def parse_quiz(html: str):
-    soup = BeautifulSoup(html, "html.parser")
+Return result as JSON:
+[
+  {{"answer": "...", "submit_url": "URL to send answer"}}
+]
 
-    question = soup.get_text(separator="\n")
-    submit_url = None
-
-    for script in soup.find_all("script"):
-        if "submit" in script.text:
-            if "https://" in script.text:
-                part = script.text.split("https://", 1)[1]
-                submit_url = "https://" + part.split('"')[0]
-
-    return question, submit_url
+HTML:
+{html}
+"""
