@@ -2,11 +2,11 @@ fastapi
 uvicorn
 httpx
 pydantic
-python-multipart
-beautifulsoup4
 pandas
 numpy
-pypdf
-matplotlib
 pillow
 openpyxl
+matplotlib
+beautifulsoup4
+pypdf
+python-multipart
