@@ -1,14 +1,14 @@
-from fastapi import FastAPI, HTTPException, Request
-from .config import SECRET, EMAIL
+from fastapi import FastAPI, Request, HTTPException
 from .solver import solve_once
-import httpx
-import time
+from .config import EMAIL, SECRET
+import httpx, time
 
 app = FastAPI()
 
 @app.post("/")
 async def entry(req: Request):
     start = time.time()
+
     try:
         data = await req.json()
     except:
@@ -23,7 +23,7 @@ async def entry(req: Request):
 
     next_url = url
 
-    # Up to 3 minutes to solve chain
+    # 3-minute limit
     while next_url and time.time() - start < 170:
         submit_url, answer = await solve_once(next_url)
 
@@ -36,8 +36,8 @@ async def entry(req: Request):
 
         async with httpx.AsyncClient() as client:
             resp = await client.post(submit_url, json=payload)
-        res = resp.json()
+            out = resp.json()
 
-        next_url = res.get("url")
+        next_url = out.get("url")
 
-    return {"done": True}
+    return {"completed": True}
