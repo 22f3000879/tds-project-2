@@ -1,12 +1,31 @@
 def build_prompt(html: str) -> str:
     return f"""
-You are a quiz solver. Extract all questions from the HTML below and compute the correct answers.
+You are a strict JSON generator.
 
-Return result as JSON:
+Extract exactly ONE question from this quiz HTML.
+Find:
+- the question text
+- the options if any
+- the correct answer using reasoning
+- the submit URL (usually the form action)
+
+RETURN JSON ONLY in this format:
+
 [
-  {{"answer": "...", "submit_url": "URL to send answer"}}
+  {{
+    "answer": "...",
+    "submit_url": "..."
+  }}
 ]
 
-HTML:
+Rules:
+- DO NOT return explanations.
+- DO NOT escape JSON.
+- ALWAYS return a non-empty list.
+- ALWAYS include submit_url.
+
+HTML CONTENT BELOW:
+----------------------------------------------------------------
 {html}
+----------------------------------------------------------------
 """
