@@ -5,20 +5,6 @@ import httpx, time
 
 app = FastAPI()
 
-# -------------------------------
-# GET ROUTES (for Render health checks)
-# -------------------------------
-@app.get("/")
-def home():
-    return {"message": "Quiz solver is running"}
-
-@app.get("/health")
-def health():
-    return {"status": "ok"}
-
-# -------------------------------
-# POST ROUTE (main quiz solver)
-# -------------------------------
 @app.post("/")
 async def entry(req: Request):
     start = time.time()
@@ -37,7 +23,6 @@ async def entry(req: Request):
 
     next_url = url
 
-    # 3-minute limit
     while next_url and time.time() - start < 170:
         submit_url, answer = await solve_once(next_url)
 
@@ -55,3 +40,12 @@ async def entry(req: Request):
         next_url = out.get("url")
 
     return {"completed": True}
+
+
+@app.get("/")
+def home():
+    return {"message": "Quiz solver is running"}
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
