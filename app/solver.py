@@ -26,3 +26,13 @@ async def solve_once(url: str):
         raise ValueError("Missing fields in LLM output:\n" + llm_output)
 
     return item["submit_url"], item["answer"]
+    try:
+    data = json.loads(llm_output)
+    except:
+    # extract JSON substring automatically
+    import re
+    match = re.search(r"\[.*\]", llm_output, re.S)
+    if not match:
+        raise ValueError("LLM returned no JSON: " + llm_output)
+    data = json.loads(match.group(0))
+
