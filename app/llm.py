@@ -14,9 +14,13 @@ async def ask_llm(prompt: str) -> str:
         ]
     }
 
-    async with httpx.AsyncClient(timeout=20) as client:
+    async with httpx.AsyncClient(timeout=30) as client:
         r = await client.post(AIPIPE_BASE, json=payload, headers=headers)
         r.raise_for_status()
         data = r.json()
 
-    return data["choices"][0]["message"]["content"]
+    # Extract content (AI Pipe returns an array)
+    chunks = data["choices"][0]["message"]["content"]
+    text = "".join(chunk.get("text", "") for chunk in chunks)
+
+    return text.strip()
