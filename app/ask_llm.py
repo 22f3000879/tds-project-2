@@ -19,8 +19,11 @@ async def ask_llm(prompt: str) -> str:
         r.raise_for_status()
         data = r.json()
 
-    # Extract content (AI Pipe returns an array)
+    # AiPipe returns:
+    # "content": [{ "text": "..."}]
     chunks = data["choices"][0]["message"]["content"]
+
+    # Join all pieces into a single string
     text = "".join(chunk.get("text", "") for chunk in chunks)
 
     return text.strip()
