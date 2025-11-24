@@ -1,18 +1,17 @@
 def build_prompt(html: str) -> str:
     return f"""
-You are a STRICT JSON generator.
+You MUST return ONLY valid JSON. NO text before or after it.
 
-RULES:
-- Output ONLY valid JSON.
-- NO explanations.
-- NO markdown.
-- JSON structure MUST be a list of objects:
+Format exactly like:
 [
   {{"answer": "...", "submit_url": "..."}}
 ]
 
-Extract all quiz questions from the HTML below, solve them, and return JSON only.
+Rules:
+- Output ONLY JSON.
+- No markdown.
+- No explanations.
 
-HTML:
+HTML to parse:
 {html}
 """
