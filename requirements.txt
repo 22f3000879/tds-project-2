@@ -10,3 +10,4 @@ matplotlib
 beautifulsoup4
 pypdf
 python-multipart
+playwright
