@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+pydantic
+httpx
+playwright
+pandas
+numpy
+openpyxl
+pypdf
+python-multipart
+beautifulsoup4
+matplotlib
+pillow
