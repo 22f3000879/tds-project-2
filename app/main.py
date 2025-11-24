@@ -5,6 +5,20 @@ import httpx, time
 
 app = FastAPI()
 
+# -------------------------------
+# GET ROUTES (for Render health checks)
+# -------------------------------
+@app.get("/")
+def home():
+    return {"message": "Quiz solver is running"}
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+# -------------------------------
+# POST ROUTE (main quiz solver)
+# -------------------------------
 @app.post("/")
 async def entry(req: Request):
     start = time.time()
