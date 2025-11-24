@@ -9,11 +9,20 @@ async def solve_once(url: str):
     prompt = build_prompt(html)
     llm_output = await ask_llm(prompt)
 
+    # Debug print for Render logs
+    print("LLM OUTPUT:", llm_output)
+
     try:
         data = json.loads(llm_output)
-    except:
-        raise ValueError("LLM returned invalid JSON: " + llm_output)
+    except Exception:
+        raise ValueError("LLM returned invalid JSON:\n" + llm_output)
 
-    item = data[0]  # one question at a time
+    if not data:
+        raise ValueError("LLM returned empty list:\n" + llm_output)
+
+    item = data[0]
+
+    if "submit_url" not in item or "answer" not in item:
+        raise ValueError("Missing fields in LLM output:\n" + llm_output)
 
     return item["submit_url"], item["answer"]
