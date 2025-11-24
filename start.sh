@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Install Playwright browsers
-python3 -m playwright install --with-deps chromium
+echo "Installing Playwright Chromium..."
+python -m playwright install --with-deps chromium
 
-# Start FastAPI app
+echo "Starting FastAPI server..."
 uvicorn app.main:app --host 0.0.0.0 --port $PORT
