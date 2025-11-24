@@ -1,34 +1,36 @@
-import json, re, base64, pandas as pd, httpx, traceback
+import json, re, base64, traceback
+import pandas as pd
+import httpx
+import io
+import matplotlib.pyplot as plt
 from bs4 import BeautifulSoup
 from .browser import fetch_page
 from .llm_pipe import ask_llm
 from .config import EMAIL, SECRET
-import matplotlib.pyplot as plt
-import io
 
 SYSTEM_PROMPT = """
-You are a quiz-solving data agent.
-Input: page text, file contents, dataframe previews.
-Output must be JSON only:
+You are a data-analysis quiz solver.
+Given the quiz text, files, and dataframe previews,
+output ONLY this JSON:
 {
  "answer": ...,
  "python": "...",
  "needs_plot": true/false
 }
 Python must define a variable 'result'.
-If needs_plot=true, save plot to '/mnt/data/plot.png'.
+If needs_plot, save plot to '/mnt/data/plot.png'.
 """
 
 async def solve_once(url: str):
     html = await fetch_page(url)
     soup = BeautifulSoup(html, "html.parser")
-    page_text = soup.get_text(" ", strip=True)
+    text = soup.get_text(" ", strip=True)
 
-    # Extract submit URL
-    m = re.search(r"https?://[^ ]+/submit[^ ]*", page_text)
+    # Detect submit URL
+    m = re.search(r"https?://[^ ]+/submit[^ ]*", text)
     submit_url = m.group(0) if m else None
 
-    # File extraction
+    # Download files
     files = [a["href"] for a in soup.find_all("a", href=True)]
     dfs = {}
     summaries = {}
@@ -41,28 +43,32 @@ async def solve_once(url: str):
                     df = pd.read_csv(io.StringIO(r.text))
                     dfs[f] = df
                     summaries[f] = df.head().to_string()
-                elif f.endswith(".xlsx"):
+
+                elif f.endswith(".xlsx") or f.endswith(".xls"):
                     df = pd.read_excel(io.BytesIO(r.content))
                     dfs[f] = df
                     summaries[f] = df.head().to_string()
+
                 elif f.endswith(".pdf"):
-                    summaries[f] = f"PDF file with {len(r.content)} bytes."
+                    summaries[f] = f"PDF file size: {len(r.content)} bytes"
+
                 else:
-                    summaries[f] = f"File ({len(r.content)} bytes)."
+                    summaries[f] = f"Raw file ({len(r.content)} bytes)"
+
             except Exception as e:
-                summaries[f] = f"Error: {e}"
+                summaries[f] = f"Error processing file: {e}"
 
     user_prompt = f"""
 Quiz text:
-{page_text}
+{text}
 
 File summaries:
 {json.dumps(summaries, indent=2)}
 
 DataFrames:
-{ {k:v.head().to_string() for k,v in dfs.items()} }
+{ {k: v.head().to_string() for k, v in dfs.items()} }
 
-Produce JSON answer as instructed.
+Follow output JSON format strictly.
 """
 
     llm_raw = await ask_llm(SYSTEM_PROMPT, user_prompt)
@@ -74,19 +80,20 @@ Produce JSON answer as instructed.
 
     answer = parsed["answer"]
 
-    # Execute python if provided
+    # Execute Python if provided
     if parsed.get("python"):
         try:
             local_env = {"dfs": dfs, "pd": pd, "plt": plt}
             exec(parsed["python"], {}, local_env)
+
             if "result" in local_env:
                 answer = local_env["result"]
 
             if parsed.get("needs_plot"):
                 plt.savefig("/mnt/data/plot.png")
                 with open("/mnt/data/plot.png", "rb") as f:
-                    img = base64.b64encode(f.read()).decode()
-                    answer = "data:image/png;base64," + img
+                    ans = base64.b64encode(f.read()).decode()
+                    answer = f"data:image/png;base64,{ans}"
 
         except Exception as e:
             answer = f"Python execution error: {e}"
