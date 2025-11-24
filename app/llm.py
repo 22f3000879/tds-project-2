@@ -14,7 +14,7 @@ async def ask_llm(prompt: str) -> str:
         ]
     }
 
-    async with httpx.AsyncClient(timeout=20) as client:
+    async with httpx.AsyncClient(timeout=80) as client:
         r = await client.post(AIPIPE_BASE, json=payload, headers=headers)
         r.raise_for_status()
         data = r.json()
