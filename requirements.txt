@@ -2,12 +2,3 @@ fastapi
 uvicorn
 httpx
 pydantic
-pandas
-numpy
-pillow
-openpyxl
-matplotlib
-beautifulsoup4
-pypdf
-python-multipart
-playwright
