@@ -1,25 +1,18 @@
-from .browser import fetch_page
-from .llm import ask_llm
-import re
+from .fetcher import fetch_page
+from .llm import llm
+from .parser import parse_quiz
 
 async def solve_once(url: str):
     html = await fetch_page(url)
+    question, submit_url = parse_quiz(html)
 
-    # Extract submit URL from HTML
-    m = re.search(r'"submit"\s*:\s*"([^"]+)"', html)
-    submit_url = m.group(1) if m else None
-
-    # Let LLM analyze question + HTML
     prompt = f"""
-You will receive HTML of a quiz page.
-Extract the correct answer ONLY.
+    You will receive a quiz question or data task.
+    Solve mathematically, precisely, and return only the final answer.
 
-HTML:
-{html}
+    QUESTION:
+    {question}
+    """
 
-Answer format: return only the raw value (number/string/boolean).
-"""
-
-    answer = await ask_llm(prompt)
-
-    return submit_url, answer.strip()
+    answer = await llm(prompt)
+    return submit_url, answer
