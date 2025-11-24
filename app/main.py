@@ -1,7 +1,8 @@
 from fastapi import FastAPI, Request, HTTPException
 from .config import EMAIL, SECRET
 from .solver import solve_once
-import time, httpx
+import httpx
+import time
 
 app = FastAPI()
 
@@ -13,32 +14,29 @@ def home():
 async def entry(req: Request):
     start = time.time()
 
-    try:
-        payload = await req.json()
-    except:
-        raise HTTPException(400, "Invalid JSON")
+    data = await req.json()
 
-    if payload.get("secret") != SECRET:
+    if data.get("secret") != SECRET:
         raise HTTPException(403, "Forbidden")
 
-    next_url = payload.get("url")
+    next_url = data.get("url")
     if not next_url:
         raise HTTPException(400, "Missing url")
 
-    while next_url and time.time() - start < 165:
+    while next_url and time.time() - start < 170:
         submit_url, answer = await solve_once(next_url)
 
-        submission = {
+        payload = {
             "email": EMAIL,
             "secret": SECRET,
             "url": next_url,
             "answer": answer
         }
 
-        async with httpx.AsyncClient(timeout=20) as client:
-            r = await client.post(submit_url, json=submission)
-            result = r.json()
+        async with httpx.AsyncClient() as client:
+            r = await client.post(submit_url, json=payload)
+            out = r.json()
 
-        next_url = result.get("url")
+        next_url = out.get("url")
 
     return {"completed": True}
