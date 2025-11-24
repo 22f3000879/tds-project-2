@@ -2,6 +2,7 @@ import httpx
 from .config import AIPIPE_TOKEN, AIPIPE_API
 
 async def fetch_page(url: str) -> str:
+    print("DEBUG:", AIPIPE_API, AIPIPE_TOKEN)
     """
     Fetch fully rendered HTML using AiPipe Browser Engine.
     """
