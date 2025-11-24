@@ -1,18 +1,19 @@
 from .fetcher import fetch_page
-from .llm import llm
-from .parser import parse_quiz
+from .llm import ask_llm
+from .parser import build_prompt
+import json
 
 async def solve_once(url: str):
     html = await fetch_page(url)
-    question, submit_url = parse_quiz(html)
 
-    prompt = f"""
-    You will receive a quiz question or data task.
-    Solve mathematically, precisely, and return only the final answer.
+    prompt = build_prompt(html)
+    llm_output = await ask_llm(prompt)
 
-    QUESTION:
-    {question}
-    """
+    try:
+        data = json.loads(llm_output)
+    except:
+        raise ValueError("LLM returned invalid JSON: " + llm_output)
 
-    answer = await llm(prompt)
-    return submit_url, answer
+    item = data[0]  # one question at a time
+
+    return item["submit_url"], item["answer"]
