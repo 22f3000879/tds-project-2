@@ -1,36 +1,43 @@
 from fastapi import FastAPI, HTTPException, Request
-from app.config import SECRET
-from app.solver import solve_quiz
-import httpx, asyncio
+from .config import SECRET, EMAIL
+from .solver import solve_once
+import httpx
+import time
 
 app = FastAPI()
 
 @app.post("/")
-async def root(req: Request):
+async def entry(req: Request):
+    start = time.time()
     try:
         data = await req.json()
     except:
-        raise HTTPException(status_code=400, detail="Invalid JSON")
+        raise HTTPException(400, "Invalid JSON")
 
-    if "secret" not in data:
-        raise HTTPException(status_code=400, detail="Missing secret")
+    if data.get("secret") != SECRET:
+        raise HTTPException(403, "Forbidden")
 
-    if data["secret"] != SECRET:
-        raise HTTPException(status_code=403, detail="Forbidden")
+    url = data.get("url")
+    if not url:
+        raise HTTPException(400, "Missing url")
 
-    if "url" not in data:
-        raise HTTPException(status_code=400, detail="Missing url")
+    next_url = url
 
-    quiz_url = data["url"]
-    submit_url, payload = await solve_quiz(quiz_url)
+    # Up to 3 minutes to solve chain
+    while next_url and time.time() - start < 170:
+        submit_url, answer = await solve_once(next_url)
 
-    async with httpx.AsyncClient(timeout=60) as client:
-        r = await client.post(submit_url, json=payload)
+        payload = {
+            "email": EMAIL,
+            "secret": SECRET,
+            "url": next_url,
+            "answer": answer
+        }
 
-    result = r.json()
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(submit_url, json=payload)
+        res = resp.json()
 
-    # If new URL returned → chain
-    if "url" in result and result["url"]:
-        await solve_quiz(result["url"])
+        next_url = res.get("url")
 
-    return {"received": True, "submitted": result}
+    return {"done": True}
