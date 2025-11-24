@@ -1,38 +1,27 @@
 from .fetcher import fetch_page
 from .llm import ask_llm
 from .parser import build_prompt
-import json
+import json, re
 
 async def solve_once(url: str):
     html = await fetch_page(url)
-
     prompt = build_prompt(html)
     llm_output = await ask_llm(prompt)
 
-    # Debug print for Render logs
-    print("LLM OUTPUT:", llm_output)
+    # Debug
+    print("LLM OUTPUT RAW:", llm_output)
 
+    # Extract JSON from messy output
     try:
-        data = json.loads(llm_output)
-    except Exception:
-        raise ValueError("LLM returned invalid JSON:\n" + llm_output)
-
-    if not data:
-        raise ValueError("LLM returned empty list:\n" + llm_output)
-
-    item = data[0]
-
-    if "submit_url" not in item or "answer" not in item:
-        raise ValueError("Missing fields in LLM output:\n" + llm_output)
-
-    return item["submit_url"], item["answer"]
-    try:
-    data = json.loads(llm_output)
+        return_data = json.loads(llm_output)
     except:
-    # extract JSON substring automatically
-    import re
-    match = re.search(r"\[.*\]", llm_output, re.S)
-    if not match:
-        raise ValueError("LLM returned no JSON: " + llm_output)
-    data = json.loads(match.group(0))
+        m = re.search(r"\[.*\]", llm_output, re.S)
+        if not m:
+            raise ValueError("LLM did not return JSON at all.")
+        return_data = json.loads(m.group(0))
 
+    if not return_data:
+        raise ValueError("LLM returned an empty list.")
+
+    item = return_data[0]
+    return item["submit_url"], item["answer"]
