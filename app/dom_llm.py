@@ -6,17 +6,17 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 
 async def extract_quiz_info(html: str):
     prompt = f"""
-You are a quiz solver. Extract the following strictly as JSON:
+You are a quiz DOM parser. Extract the following fields strictly as JSON:
 
 - question_text
 - submit_url
-- answer_instruction (what the quiz wants)
-- file_url (if any file needs downloading)
+- answer_instruction
+- file_url (null if none)
+
+Return ONLY valid JSON. No explanations.
 
 HTML:
 {html}
-
-Return JSON only.
 """
 
     response = client.responses.create(
@@ -27,4 +27,18 @@ Return JSON only.
 
     raw = response.output_text
     print("LLM RAW:", raw)
-    return raw
+
+    # --- CLEAN JSON ---
+    cleaned = raw.strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.split("```", 2)[1]  # remove first block fence
+    cleaned = cleaned.replace("```json", "").replace("```", "").strip()
+
+    # --- LOAD JSON ---
+    try:
+        data = json.loads(cleaned)
+    except Exception as e:
+        print("JSON PARSE ERROR:", e, cleaned)
+        raise ValueError("LLM returned invalid JSON")
+
+    return data
