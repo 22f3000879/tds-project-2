@@ -1,42 +1,44 @@
-from fastapi import FastAPI, Request, HTTPException
-from .config import EMAIL, SECRET
-from .solver import solve_once
-import httpx
-import time
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from .config import SECRET
+from .fetcher import fetch_raw
+from .extractor import extract_payload
+from .solver import solve_question
+from .submitter import submit_answer
 
 app = FastAPI()
 
-@app.get("/")
-def home():
-    return {"message": "Quiz solver is running"}
-
 @app.post("/")
-async def entry(req: Request):
-    start = time.time()
+async def entry(request: Request):
+    try:
+        payload = await request.json()
+    except:
+        return JSONResponse({"error": "invalid json"}, 400)
 
-    data = await req.json()
+    if payload.get("secret") != SECRET:
+        return JSONResponse({"error": "forbidden"}, 403)
 
-    if data.get("secret") != SECRET:
-        raise HTTPException(403, "Forbidden")
+    quiz_url = payload.get("url")
+    if not quiz_url:
+        return JSONResponse({"error": "url missing"}, 400)
 
-    next_url = data.get("url")
-    if not next_url:
-        raise HTTPException(400, "Missing url")
+    results = []
 
-    while next_url and time.time() - start < 170:
-        submit_url, answer = await solve_once(next_url)
+    # chain until no next url
+    current = quiz_url
+    while current:
+        html = await fetch_raw(current)
+        decoded_html, data = extract_payload(html)
+        answer = await solve_question(decoded_html, data)
+        submit_url = data["submit_url"]
 
-        payload = {
-            "email": EMAIL,
-            "secret": SECRET,
-            "url": next_url,
-            "answer": answer
-        }
+        res = await submit_answer(submit_url, current, answer)
+        results.append({
+            "url": current,
+            "answer": answer,
+            "result": res
+        })
 
-        async with httpx.AsyncClient() as client:
-            r = await client.post(submit_url, json=payload)
-            out = r.json()
+        current = res.get("url")  # next quiz page or None
 
-        next_url = out.get("url")
-
-    return {"completed": True}
+    return {"done": True, "results": results}
