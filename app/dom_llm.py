@@ -1,35 +1,57 @@
-from openai import AsyncOpenAI
 import json
-from app.config import OPENAI_API_KEY, OPENAI_MODEL
+from openai import OpenAI
+from .config import OPENAI_API_KEY, OPENAI_MODEL
 
-client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+client = OpenAI(api_key=OPENAI_API_KEY)
 
-SYSTEM_PROMPT = """
-You are a DOM extraction assistant.
+async def extract_quiz_info(html_text: str):
+    """
+    Use LLM to extract:
+        - question type
+        - what to compute
+        - download URLs
+        - submit URL
+    Must return valid JSON always.
+    """
 
-Your job:
-1. Read messy HTML / JavaScript.
-2. Infer the quiz question.
-3. Extract:
-   - question_id
-   - download_url
-   - submit_url
-   - task_description
-Output strictly JSON only.
+    system_prompt = """
+You are a DOM analysis assistant.
+Your job is to read the extracted text of a quiz page and return structured JSON.
+
+Output format:
+{
+  "question": "...",
+  "task_type": "...",
+  "submit_url": "...",
+  "resources": ["url1", "url2"],
+  "instructions": "plain english description of what to compute"
+}
+
+If anything is missing, infer sensibly.
 """
 
-async def llm_extract_dom(text: str) -> dict:
+    user_prompt = f"""
+Extract quiz information from the page text:
+
+PAGE_CONTENT:
+{html_text}
+
+Return ONLY valid JSON.
+"""
+
+    response = client.responses.create(
+        model=OPENAI_MODEL,
+        input=[{"role": "system", "content": system_prompt},
+               {"role": "user", "content": user_prompt}],
+        reasoning={"effort": "medium"},
+        max_output_tokens=400,
+        temperature=0
+    )
+
     try:
-        response = await client.chat.completions.create(
-            model=OPENAI_MODEL,
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": text}
-            ],
-            temperature=0
-        )
-        content = response.choices[0].message.content
-        return json.loads(content)
-    except Exception as e:
-        print("LLM DOM extraction error:", e)
-        return {}
+        content = response.output_text
+        data = json.loads(content)
+        return data
+    except Exception:
+        print("LLM DOM extraction error:", content)
+        return None
