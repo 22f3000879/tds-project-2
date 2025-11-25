@@ -1,22 +1,24 @@
 import httpx
 from bs4 import BeautifulSoup
-import base64
-import re
 
-async def fetch_page(url: str) -> str:
-    """Fetch webpage (no JS). Handle base64 DOM-injected HTML."""
-    async with httpx.AsyncClient(timeout=20) as client:
-        r = await client.get(url)
-        r.raise_for_status()
-        html = r.text
+client = httpx.AsyncClient(timeout=20)
 
-    # Detect base64 injected pages like sample Q834
+async def fetch_html(url: str) -> str:
+    r = await client.get(url)
+    r.raise_for_status()
+    return r.text
+
+async def extract_dom_text(html: str) -> str:
     soup = BeautifulSoup(html, "html.parser")
-    script = soup.find("script")
-    if script and "atob" in script.text:
-        match = re.search(r"atob\(`([^`]+)`\)", script.text)
-        if match:
-            decoded = base64.b64decode(match.group(1)).decode()
-            return decoded
 
-    return html
+    # Full rendered DOM may contain JS-generated content inside <script> as base64.
+    # Extract visible + script base64-embedded content.
+    text_parts = []
+
+    for tag in soup.find_all():
+        if tag.name == "script" and tag.string:
+            text_parts.append(tag.string)
+        if tag.text:
+            text_parts.append(tag.text)
+
+    return "\n".join(text_parts)
