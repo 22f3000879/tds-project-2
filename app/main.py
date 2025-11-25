@@ -1,42 +1,37 @@
 from fastapi import FastAPI, Request, HTTPException
-import time
-from .config import SECRET, EMAIL
-from .solver import solve_once
-from .submit import submit_answer
+from app.config import SECRET, EMAIL
+from app.solver import solve_once
+from app.submit import submit_answer
 
 app = FastAPI()
 
 @app.get("/")
-def home():
-    return {"message": "LLM Quiz Solver running"}
-
-@app.get("/health")
-def health():
-    return {"status": "ok"}
+async def home():
+    return {"status": "ok", "message": "TDS Project 2 Running"}
 
 @app.post("/")
-async def endpoint(req: Request):
-    start = time.time()
-
+async def endpoint(request: Request):
     try:
-        data = await req.json()
+        payload = await request.json()
     except:
         raise HTTPException(400, "Invalid JSON")
 
-    if data.get("secret") != SECRET:
+    if payload.get("secret") != SECRET:
         raise HTTPException(403, "Forbidden")
 
-    quiz_url = data.get("url")
+    quiz_url = payload.get("url")
     if not quiz_url:
         raise HTTPException(400, "Missing quiz URL")
 
-    next_url = quiz_url
+    # Solve first question
+    submit_url, answer = await solve_once(quiz_url, EMAIL, SECRET)
 
-    while next_url and time.time() - start < 170:
-        submit_url, answer = await solve_once(next_url)
+    result = await submit_answer(submit_url, EMAIL, SECRET, quiz_url, answer)
 
-        resp = await submit_answer(submit_url, next_url, answer)
+    # Loop if more questions exist
+    while result.get("url"):
+        next_url = result["url"]
+        submit_url, answer = await solve_once(next_url, EMAIL, SECRET)
+        result = await submit_answer(submit_url, EMAIL, SECRET, next_url, answer)
 
-        next_url = resp.get("url")
-
-    return {"done": True}
+    return result
