@@ -1,27 +1,45 @@
-from openai import AsyncOpenAI
-from app.config import OPENAI_API_KEY, OPENAI_MODEL
 import json
+from openai import OpenAI
+from .config import OPENAI_API_KEY, OPENAI_MODEL
 
-client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+client = OpenAI(api_key=OPENAI_API_KEY)
 
-SYSTEM_PROMPT = """
-You solve quiz questions using ONLY the given data.
-Never hallucinate numbers.
-Return JSON only: { "answer": ... }
+async def solve_task(question: str, instructions: str, data_summary: str):
+    """
+    LLM computes final answer from extracted data.
+    """
+
+    system_prompt = """
+You are an advanced quiz solver.
+You ALWAYS return valid JSON only.
+
+Format:
+{"answer": ...}
+    """
+
+    user_prompt = f"""
+QUESTION:
+{question}
+
+INSTRUCTIONS:
+{instructions}
+
+DATA SUMMARY:
+{data_summary}
+
+Return JSON only.
 """
 
-async def llm_answer(question_text: str, data_text: str) -> dict:
+    r = client.responses.create(
+        model=OPENAI_MODEL,
+        input=[{"role": "system", "content": system_prompt},
+               {"role": "user", "content": user_prompt}],
+        max_output_tokens=300,
+        temperature=0
+    )
+
     try:
-        response = await client.chat.completions.create(
-            model=OPENAI_MODEL,
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": f"QUESTION:\n{question_text}\n\nDATA:\n{data_text}"}
-            ],
-            temperature=0
-        )
-        content = response.choices[0].message.content
-        return json.loads(content)
-    except Exception as e:
-        print("LLM Answer error:", e)
-        return {"answer": None}
+        return json.loads(r.output_text)["answer"]
+    except Exception:
+        print("LLM Quiz compute error:", r.output_text)
+        return None
