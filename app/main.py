@@ -1,37 +1,48 @@
 from fastapi import FastAPI, Request, HTTPException
-from app.config import SECRET, EMAIL
-from app.solver import solve_once
-from app.submit import submit_answer
+import time
+
+from .config import EMAIL, SECRET
+from .solver import solve_once
+from .submit import submit_answer
 
 app = FastAPI()
 
 @app.get("/")
-async def home():
-    return {"status": "ok", "message": "TDS Project 2 Running"}
+def home():
+    return {"status": "running", "email": EMAIL}
+
 
 @app.post("/")
-async def endpoint(request: Request):
+async def endpoint(req: Request):
+    start = time.time()
+
     try:
-        payload = await request.json()
+        data = await req.json()
     except:
         raise HTTPException(400, "Invalid JSON")
 
-    if payload.get("secret") != SECRET:
+    if data.get("secret") != SECRET:
         raise HTTPException(403, "Forbidden")
 
-    quiz_url = payload.get("url")
+    quiz_url = data.get("url")
     if not quiz_url:
-        raise HTTPException(400, "Missing quiz URL")
+        raise HTTPException(400, "Missing URL")
 
-    # Solve first question
-    submit_url, answer = await solve_once(quiz_url, EMAIL, SECRET)
+    next_url = quiz_url
 
-    result = await submit_answer(submit_url, EMAIL, SECRET, quiz_url, answer)
-
-    # Loop if more questions exist
-    while result.get("url"):
-        next_url = result["url"]
+    # 3-minute evaluation loop
+    while next_url and time.time() - start < 170:
         submit_url, answer = await solve_once(next_url, EMAIL, SECRET)
-        result = await submit_answer(submit_url, EMAIL, SECRET, next_url, answer)
 
-    return result
+        payload = {
+            "email": EMAIL,
+            "secret": SECRET,
+            "url": next_url,
+            "answer": answer,
+        }
+
+        result = await submit_answer(submit_url, payload)
+
+        next_url = result.get("url")
+
+    return {"done": True}
