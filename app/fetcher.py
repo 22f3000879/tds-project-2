@@ -1,24 +1,23 @@
 import httpx
 from bs4 import BeautifulSoup
 
-client = httpx.AsyncClient(timeout=20)
+async def fetch_page(url: str) -> str:
+    """
+    Fetches HTML content. JS-rendered? Server already serves rendered DOM.
+    """
+    async with httpx.AsyncClient(timeout=20) as client:
+        r = await client.get(url)
+        r.raise_for_status()
+        return r.text
 
-async def fetch_html(url: str) -> str:
-    r = await client.get(url)
-    r.raise_for_status()
-    return r.text
 
-async def extract_dom_text(html: str) -> str:
-    soup = BeautifulSoup(html, "html.parser")
+def clean_html(raw_html: str) -> str:
+    """
+    Remove scripts, styles, unnecessary tags.
+    """
+    soup = BeautifulSoup(raw_html, "html.parser")
 
-    # Full rendered DOM may contain JS-generated content inside <script> as base64.
-    # Extract visible + script base64-embedded content.
-    text_parts = []
+    for tag in soup(["script", "style", "noscript"]):
+        tag.decompose()
 
-    for tag in soup.find_all():
-        if tag.name == "script" and tag.string:
-            text_parts.append(tag.string)
-        if tag.text:
-            text_parts.append(tag.text)
-
-    return "\n".join(text_parts)
+    return soup.get_text("\n")
