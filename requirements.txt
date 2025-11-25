@@ -7,3 +7,4 @@ pandas
 numpy
 python-multipart
 openai==2.8.1
+requests
