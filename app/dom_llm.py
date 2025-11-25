@@ -30,15 +30,22 @@ HTML:
 
     # --- CLEAN JSON ---
     cleaned = raw.strip()
+
+    # Remove fenced code blocks
     if cleaned.startswith("```"):
-        cleaned = cleaned.split("```", 2)[1]  # remove first block fence
+        cleaned = cleaned.split("```", 2)[1].strip()
+
     cleaned = cleaned.replace("```json", "").replace("```", "").strip()
 
-    # --- LOAD JSON ---
+    # --- STRIP EVERYTHING BEFORE FIRST "{" ---
+    idx = cleaned.find("{")
+    if idx != -1:
+        cleaned = cleaned[idx:]
+
+    # Now cleaned is guaranteed to start with '{'
     try:
         data = json.loads(cleaned)
     except Exception as e:
         print("JSON PARSE ERROR:", e, cleaned)
         raise ValueError("LLM returned invalid JSON")
 
-    return data
