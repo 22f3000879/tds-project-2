@@ -6,4 +6,4 @@ pypdf
 pandas
 numpy
 python-multipart
-openai>=1.12.0
+openai==2.8.1
