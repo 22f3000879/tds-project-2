@@ -4,54 +4,27 @@ from .config import OPENAI_API_KEY, OPENAI_MODEL
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
-async def extract_quiz_info(html_text: str):
-    """
-    Use LLM to extract:
-        - question type
-        - what to compute
-        - download URLs
-        - submit URL
-    Must return valid JSON always.
-    """
+async def extract_quiz_info(html: str):
+    prompt = f"""
+You are a quiz solver. Extract the following strictly as JSON:
 
-    system_prompt = """
-You are a DOM analysis assistant.
-Your job is to read the extracted text of a quiz page and return structured JSON.
+- question_text
+- submit_url
+- answer_instruction (what the quiz wants)
+- file_url (if any file needs downloading)
 
-Output format:
-{
-  "question": "...",
-  "task_type": "...",
-  "submit_url": "...",
-  "resources": ["url1", "url2"],
-  "instructions": "plain english description of what to compute"
-}
+HTML:
+{html}
 
-If anything is missing, infer sensibly.
-"""
-
-    user_prompt = f"""
-Extract quiz information from the page text:
-
-PAGE_CONTENT:
-{html_text}
-
-Return ONLY valid JSON.
+Return JSON only.
 """
 
     response = client.responses.create(
         model=OPENAI_MODEL,
-        input=[{"role": "system", "content": system_prompt},
-               {"role": "user", "content": user_prompt}],
-        reasoning={"effort": "medium"},
-        max_output_tokens=400,
+        input=prompt,
         temperature=0
     )
 
-    try:
-        content = response.output_text
-        data = json.loads(content)
-        return data
-    except Exception:
-        print("LLM DOM extraction error:", content)
-        return None
+    raw = response.output_text
+    print("LLM RAW:", raw)
+    return raw
