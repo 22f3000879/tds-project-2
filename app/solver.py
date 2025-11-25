@@ -1,27 +1,19 @@
-from .fetcher import fetch_page
-from .llm import ask_llm
-from .parser import build_prompt
-import json, re
+import io
+import pdfplumber
+import httpx
+import pandas as pd
 
-async def solve_once(url: str):
-    html = await fetch_page(url)
-    prompt = build_prompt(html)
-    llm_output = await ask_llm(prompt)
+async def solve_question(decoded_html: str, data: dict):
+    file_url = data["url"]
 
-    # Debug
-    print("LLM OUTPUT RAW:", llm_output)
+    async with httpx.AsyncClient(timeout=30) as client:
+        pdf_bytes = (await client.get(file_url)).content
 
-    # Extract JSON from messy output
-    try:
-        return_data = json.loads(llm_output)
-    except:
-        m = re.search(r"\[.*\]", llm_output, re.S)
-        if not m:
-            raise ValueError("LLM did not return JSON at all.")
-        return_data = json.loads(m.group(0))
+    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+        page2 = pdf.pages[1]
+        table = page2.extract_table()
 
-    if not return_data:
-        raise ValueError("LLM returned an empty list.")
+    df = pd.DataFrame(table[1:], columns=table[0])
+    df["value"] = pd.to_numeric(df["value"])
 
-    item = return_data[0]
-    return item["submit_url"], item["answer"]
+    return df["value"].sum()
