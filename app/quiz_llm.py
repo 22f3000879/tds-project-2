@@ -1,23 +1,18 @@
-import openai
+from openai import AsyncOpenAI
 from app.config import OPENAI_API_KEY, OPENAI_MODEL
+import json
 
-openai.api_key = OPENAI_API_KEY
+client = AsyncOpenAI(api_key=OPENAI_API_KEY)
 
 SYSTEM_PROMPT = """
-You are a quiz-solving assistant.
-You NEVER hallucinate numbers.
-You only compute using provided data.
-
-If unsure, say "PARSE_ERROR".
-Return ONLY JSON:
-{
-  "answer": ...
-}
+You solve quiz questions using ONLY the given data.
+Never hallucinate numbers.
+Return JSON only: { "answer": ... }
 """
 
 async def llm_answer(question_text: str, data_text: str) -> dict:
     try:
-        response = await openai.ChatCompletion.acreate(
+        response = await client.chat.completions.create(
             model=OPENAI_MODEL,
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
@@ -25,8 +20,8 @@ async def llm_answer(question_text: str, data_text: str) -> dict:
             ],
             temperature=0
         )
-        import json
-        return json.loads(response.choices[0].message["content"])
+        content = response.choices[0].message.content
+        return json.loads(content)
     except Exception as e:
         print("LLM Answer error:", e)
         return {"answer": None}
