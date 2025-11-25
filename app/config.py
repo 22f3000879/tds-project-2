@@ -1,10 +1,7 @@
 import os
 
-EMAIL = "22f3000879@ds.study.iitm.ac.in"
-SECRET = "22f3000879"
+SECRET = os.getenv("TDS_SECRET", "")
+EMAIL = os.getenv("TDS_EMAIL", "")
 
-# AiPipe LLM Token
-AIPIPE_TOKEN = os.getenv("AIPIPE_TOKEN")
-
-# AiPipe OpenAI-compatible endpoint
-AIPIPE_BASE = "https://aipipe.org/openai/v1/chat/completions"
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+OPENAI_MODEL = "gpt-4.1-mini"   # Good balance between speed + cost
