@@ -1,50 +1,39 @@
-import base64
-import httpx
-from pypdf import PdfReader
+from .fetcher import fetch_page, clean_html
+from .dom_llm import extract_quiz_info
+from .quiz_llm import solve_task
+from .utils import download_file, extract_pdf_tables
+import json
 import os
-from app.fetcher import fetch_html, extract_dom_text
-from app.dom_llm import llm_extract_dom
-from app.quiz_llm import llm_answer
 
 async def solve_once(url: str, email: str, secret: str):
-    html = await fetch_html(url)
-    dom_text = await extract_dom_text(html)
+    raw_html = await fetch_page(url)
+    text = clean_html(raw_html)
 
-    info = await llm_extract_dom(dom_text)
+    quiz = await extract_quiz_info(text)
+    if not quiz:
+        raise ValueError("LLM failed to interpret quiz page.")
 
-    submit_url = info.get("submit_url")
-    download_url = info.get("download_url")
-    question_text = info.get("task_description")
+    submit_url = quiz["submit_url"]
+    question = quiz["question"]
+    instructions = quiz["instructions"]
+    resources = quiz.get("resources", [])
 
-    if not submit_url:
-        raise ValueError("LLM failed to identify submit_url")
+    data_summary = ""
 
-    data_text = ""
-
-    if download_url:
-        # download PDF or other file
-        r = await httpx.AsyncClient(timeout=20).get(download_url)
-        content = r.content
-
-        # If PDF
-        if download_url.lower().endswith(".pdf"):
-            reader = PdfReader(io.BytesIO(content))
-            all_text = []
-            for page in reader.pages:
-                all_text.append(page.extract_text())
-            data_text = "\n".join(all_text)
+    for res in resources:
+        if res.lower().endswith(".pdf"):
+            pdf_bytes = download_file(res)
+            extracted = extract_pdf_tables(pdf_bytes)
+            data_summary += f"\nPDF_FROM_{res}:\n{extracted}\n"
         else:
-            # assume text/CSV
             try:
-                data_text = content.decode("utf-8", errors="ignore")
-            except:
-                data_text = base64.b64encode(content).decode()
+                data_summary += f"\nFILE({res}): Downloaded but not parsed.\n"
+            except Exception:
+                pass
 
-    # Use LLM to compute answer
-    result = await llm_answer(question_text, data_text)
-    answer = result.get("answer")
+    answer = await solve_task(question, instructions, data_summary)
 
     if answer is None:
-        raise ValueError("LLM failed to compute answer")
+        raise ValueError("LLM failed to compute final answer.")
 
     return submit_url, answer
