@@ -1,31 +1,34 @@
-from .config import AIPIPE_TOKEN, AIPIPE_BASE
-import httpx
-import json
+import openai
+from app.config import OPENAI_API_KEY, OPENAI_MODEL
 
-async def llm_extract(html: str) -> dict:
-    system_prompt = "You are a precise DOM interpreter. Extract quiz instructions accurately."
-    user_prompt = f"HTML:\n{html}\n\nExtract: question text, required steps, data URLs, submit URL."
+openai.api_key = OPENAI_API_KEY
 
-    payload = {
-        "model": "gpt-5-nano",
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
-        ]
-    }
+SYSTEM_PROMPT = """
+You are a DOM extraction assistant.
 
-    headers = {
-        "Authorization": f"Bearer {AIPIPE_TOKEN}",
-        "Content-Type": "application/json"
-    }
+Your job:
+1. Read messy HTML / JavaScript.
+2. Infer the quiz question.
+3. Extract:
+   - question_id
+   - download_url (if PDF/CSV/API)
+   - submit_url
+   - task_description in plain English
+Always output a JSON object only.
+"""
 
-    async with httpx.AsyncClient(timeout=30) as client:
-        r = await client.post(AIPIPE_BASE, json=payload, headers=headers)
-        r.raise_for_status()
-
-    text = r.json()["choices"][0]["message"]["content"]
-
+async def llm_extract_dom(text: str) -> dict:
     try:
-        return json.loads(text)
-    except:
-        return {"raw": text}
+        response = await openai.ChatCompletion.acreate(
+            model=OPENAI_MODEL,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": text}
+            ],
+            temperature=0
+        )
+        import json
+        return json.loads(response.choices[0].message["content"])
+    except Exception as e:
+        print("LLM DOM extraction error:", e)
+        return {}
