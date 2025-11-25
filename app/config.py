@@ -1,7 +1,11 @@
 import os
 
-SECRET = os.getenv("TDS_SECRET", "")
-EMAIL = os.getenv("TDS_EMAIL", "")
+# Student info
+EMAIL = "22f3000879@ds.study.iitm.ac.in"
+SECRET = "22f3000879"
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-OPENAI_MODEL = "gpt-4.1-mini"   # Good balance between speed + cost
+# OpenAI Environment Variables (Render → Environment → Add)
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+# Model for structured quiz extraction
+OPENAI_MODEL = "gpt-4.1-mini"
