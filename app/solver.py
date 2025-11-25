@@ -1,7 +1,7 @@
 import base64
 import httpx
 from pypdf import PdfReader
-
+import os
 from app.fetcher import fetch_html, extract_dom_text
 from app.dom_llm import llm_extract_dom
 from app.quiz_llm import llm_answer
