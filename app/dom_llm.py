@@ -1,7 +1,8 @@
-import openai
+from openai import AsyncOpenAI
+import json
 from app.config import OPENAI_API_KEY, OPENAI_MODEL
 
-openai.api_key = OPENAI_API_KEY
+client = AsyncOpenAI(api_key=OPENAI_API_KEY)
 
 SYSTEM_PROMPT = """
 You are a DOM extraction assistant.
@@ -11,15 +12,15 @@ Your job:
 2. Infer the quiz question.
 3. Extract:
    - question_id
-   - download_url (if PDF/CSV/API)
+   - download_url
    - submit_url
-   - task_description in plain English
-Always output a JSON object only.
+   - task_description
+Output strictly JSON only.
 """
 
 async def llm_extract_dom(text: str) -> dict:
     try:
-        response = await openai.ChatCompletion.acreate(
+        response = await client.chat.completions.create(
             model=OPENAI_MODEL,
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
@@ -27,8 +28,8 @@ async def llm_extract_dom(text: str) -> dict:
             ],
             temperature=0
         )
-        import json
-        return json.loads(response.choices[0].message["content"])
+        content = response.choices[0].message.content
+        return json.loads(content)
     except Exception as e:
         print("LLM DOM extraction error:", e)
         return {}
