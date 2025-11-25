@@ -1,42 +1,48 @@
-import json
-from .fetcher import fetch_html, fetch_file
-from .parser import parse_quiz
-from .extractor import extract_answer
-from .llm import ask_llm
+from .fetcher import fetch_page
+from .dom_llm import render_dom
+from .quiz_llm import interpret_quiz
+from .submit import submit_answer
+from .utils import download_file, extract_pdf_table_sum
+from .config import EMAIL, SECRET
+import time
 
-async def solve_once(url: str):
-    html = await fetch_html(url)
-    parsed = parse_quiz(html)
+async def solve_once(initial_url: str):
 
-    instructions = parsed["instructions"]
-    file_url = parsed["file_url"]
-    submit_url = parsed["submit_url"]
+    url = initial_url
+    start_time = time.time()
 
-    file_bytes = None
-    if file_url:
-        file_bytes = await fetch_file(file_url)
+    while True:
 
-    # Try rule-based extraction first
-    answer = extract_answer(instructions, file_bytes)
+        raw_html = await fetch_page(url)
+        final_html = await render_dom(raw_html)
+        interpretation = await interpret_quiz(final_html)
 
-    # If rules failed → ask LLM to compute
-    if answer is None:
-        prompt = f"""
-You are a data assistant. A quiz question says:
+        submit_url = interpretation["submit_url"]
+        download_url = interpretation["download_url"]
+        needs_compute = interpretation["needs_compute"]
+        expected_action = interpretation["expected_action"]
 
-{instructions}
+        answer = interpretation["answer"]
 
-Extract the correct answer ONLY.
-If a file was downloaded, here is extracted text for reference:
+        if needs_compute:
+            if expected_action == "pdf_sum":
+                file_bytes = await download_file(download_url)
+                answer = extract_pdf_table_sum(file_bytes)
 
-{file_bytes[:500] if file_bytes else 'No file'}
+        payload = {
+            "email": EMAIL,
+            "secret": SECRET,
+            "url": url,
+            "answer": answer
+        }
 
-Return ONLY a JSON like: {{"answer": VALUE}}
-"""
-        llm_out = await ask_llm(prompt)
-        try:
-            answer = json.loads(llm_out)["answer"]
-        except:
-            answer = llm_out  # fallback
+        result = await submit_answer(submit_url, payload)
 
-    return submit_url, answer
+        if "url" not in result or not result["url"]:
+            return result
+
+        url = result["url"]
+
+        if time.time() - start_time > 170:
+            return {"correct": False, "reason": "Timeout 3 minutes"}
+
