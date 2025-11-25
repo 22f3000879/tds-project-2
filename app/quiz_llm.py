@@ -1,26 +1,32 @@
-from .config import AIPIPE_TOKEN, AIPIPE_BASE
-import httpx
-import json
+import openai
+from app.config import OPENAI_API_KEY, OPENAI_MODEL
 
-async def llm_solve(question: str, data: str) -> str:
-    system_prompt = "You are a highly accurate data analyst. Always return only the final answer."
-    user_prompt = f"Question:\n{question}\n\nData:\n{data}\n\nReturn only the result."
+openai.api_key = OPENAI_API_KEY
 
-    payload = {
-        "model": "gpt-5-nano",
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ]
-    }
+SYSTEM_PROMPT = """
+You are a quiz-solving assistant.
+You NEVER hallucinate numbers.
+You only compute using provided data.
 
-    headers = {
-        "Authorization": f"Bearer {AIPIPE_TOKEN}",
-        "Content-Type": "application/json"
-    }
+If unsure, say "PARSE_ERROR".
+Return ONLY JSON:
+{
+  "answer": ...
+}
+"""
 
-    async with httpx.AsyncClient(timeout=30) as client:
-        r = await client.post(AIPIPE_BASE, json=payload, headers=headers)
-        r.raise_for_status()
-
-    return r.json()["choices"][0]["message"]["content"].strip()
+async def llm_answer(question_text: str, data_text: str) -> dict:
+    try:
+        response = await openai.ChatCompletion.acreate(
+            model=OPENAI_MODEL,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": f"QUESTION:\n{question_text}\n\nDATA:\n{data_text}"}
+            ],
+            temperature=0
+        )
+        import json
+        return json.loads(response.choices[0].message["content"])
+    except Exception as e:
+        print("LLM Answer error:", e)
+        return {"answer": None}
