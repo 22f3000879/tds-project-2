@@ -1,14 +1,17 @@
-import re
+import pandas as pd
+import requests
+from pypdf import PdfReader
+from io import BytesIO
 
-def extract_between(text, start, end):
-    s = text.find(start)
-    if s == -1:
-        return None
-    s += len(start)
-    e = text.find(end, s)
-    if e == -1:
-        return None
-    return text[s:e].strip()
+def download_file(url: str):
+    r = requests.get(url)
+    r.raise_for_status()
+    return r.content
 
-def clean_text(t: str):
-    return re.sub(r"\s+", " ", t).strip()
+
+def extract_pdf_tables(pdf_bytes):
+    reader = PdfReader(BytesIO(pdf_bytes))
+    text = ""
+    for page in reader.pages:
+        text += page.extract_text() + "\n"
+    return text
